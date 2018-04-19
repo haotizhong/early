@@ -33,7 +33,7 @@ def plot_test_acc(plot_handles):
     display.clear_output(wait=True)
     
 # train/compare vanilla sgd and ewc
-def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, lams=[0]):
+def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, lams=[0], c):
     for l in range(len(lams)):
         # lams[l] sets weight on old task(s)
         model.restore(sess) # reassign optimal weights from previous training session
@@ -49,6 +49,9 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, lams=[0]):
         for iter in range(num_iter):
             batch = trainset.train.next_batch(100)
             model.train_step.run(feed_dict={x: batch[0], y_: batch[1]})
+            if model.get_ewc_loss(sess, trainset.train.images, trainset.train.labels) > c:
+            	break
+
             if iter % disp_freq == 0:
                 plt.subplot(1, len(lams), l+1)
                 plots = []
