@@ -50,6 +50,7 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, lams=[0], 
             batch = trainset.train.next_batch(100)
             model.train_step.run(feed_dict={x: batch[0], y_: batch[1]})
             if model.get_ewc_loss(sess, trainset.train.images, trainset.train.labels) > c:
+                #projection
             	break
 
             if iter % disp_freq == 0:
@@ -75,15 +76,19 @@ x = tf.placeholder(tf.float32, shape=[None, 784])
 y_ = tf.placeholder(tf.float32, shape=[None, 10])
 model = Model(x, y_)
 sess.run(tf.global_variables_initializer())
-train_task(model, 800, 20, mnist, [mnist], x, y_, lams=[0])
+c = 0
+
+train_task(model, 800, 20, mnist, [mnist], x, y_, lams=[0], 100000)
 
 model.compute_fisher(mnist.validation.images, sess, num_samples=200, plot_diffs=True) # use valida
 mnist2 = permute_mnist(mnist)
 model.star()
-train_task(model, 800, 20, mnist2, [mnist, mnist2], x, y_, lams=[0, 15])
+
+
+train_task(model, 800, 20, mnist2, [mnist, mnist2], x, y_, lams=[0, 15], c)
 
 model.compute_fisher(mnist2.validation.images, sess, num_samples=200, plot_diffs=True)
 mnist3 = permute_mnist(mnist)
 model.star()
 
-train_task(model, 800, 20, mnist3, [mnist, mnist2, mnist3], x, y_, lams=[0, 15])
+train_task(model, 800, 20, mnist3, [mnist, mnist2, mnist3], x, y_, lams=[0, 15], c)
