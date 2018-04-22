@@ -20,6 +20,7 @@ class Model:
         out_dim = int(y_.get_shape()[1]) # 10 for MNIST
 
         self.x = x # input placeholder
+        self.y_ = y_
 
         # simple 2-layer network
         W1 = weight_variable([in_dim,50])
@@ -40,7 +41,8 @@ class Model:
         # performance metrics
         correct_prediction = tf.equal(tf.argmax(self.y,1), tf.argmax(y_,1))
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
+        self.F_accum = []
+        
     def compute_fisher(self, imgset, sess, num_samples=200, plot_diffs=False, disp_freq=10):
         # computer Fisher information for each parameter
 
@@ -113,5 +115,12 @@ class Model:
             self.stop_loss = tf.reduce_sum(tf.multiply(self.F_accum[v].astype(np.float32),tf.square(self.var_list[v] - self.star_vars[v])))
         self.train_step = tf.train.GradientDescentOptimizer(0.1).minimize(self.ewc_loss)
 
+    def get_ewc_loss(self, sess, imgset, labels):
+        # elastic weight consolidation
+        # lam is weighting for previous task(s) constraints
 
-
+        stop_loss = 0
+        for v in range(len(self.var_list)):
+            feed_dict={self.x: imgset, self.y_: labels}
+            stop_loss += sess.run(tf.reduce_sum(tf.multiply(self.F_accum[v].astype(np.float32),tf.square(self.var_list[v] - self.star_vars[v]))), feed_dict = feed_dict)
+        return stop_loss
