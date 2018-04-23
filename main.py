@@ -34,6 +34,7 @@ def plot_test_acc(plot_handles):
     
 # train/compare vanilla sgd and ewc
 def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, lams=[0]):
+
     for l in range(len(lams)):
         # lams[l] sets weight on old task(s)
         model.restore(sess) # reassign optimal weights from previous training session
@@ -49,6 +50,7 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, lams=[0
         for iter in range(num_iter):
             batch = trainset.train.next_batch(100)
             model.train_step.run(feed_dict={x: batch[0], y_: batch[1]})
+
             if len(lams) > 1:
                 stop_loss = model.get_ewc_loss(sess, trainset.train.images, trainset.train.labels)
                 print(stop_loss)
@@ -81,6 +83,7 @@ model = Model(x, y_)
 sess.run(tf.global_variables_initializer())
 c = 0
 
+
 train_task(model, 800, 20, mnist, [mnist], x, y_, c, lams=[0])
 
 model.compute_fisher(mnist.validation.images, sess, num_samples=200, plot_diffs=True) # use valida
@@ -94,5 +97,6 @@ train_task(model, 800, 20, mnist2, [mnist, mnist2], x, y_, c, lams=[0, 15])
 model.compute_fisher(mnist2.validation.images, sess, num_samples=200, plot_diffs=True)
 mnist3 = permute_mnist(mnist)
 model.star()
+
 
 train_task(model, 800, 20, mnist3, [mnist, mnist2, mnist3], x, y_, c, lams=[0, 15])
