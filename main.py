@@ -15,14 +15,15 @@ def mnist_imshow(img):
 
 # return a new mnist dataset w/ pixels randomly permuted
 def permute_mnist(mnist):
-    perm_inds = range(mnist.train.images.shape[1])
-    np.random.shuffle(list(perm_inds))
+    perm_inds = np.array(range(mnist.train.images.shape[1]))
+    np.random.shuffle(perm_inds)
     mnist2 = deepcopy(mnist)
     sets = ["train", "validation", "test"]
     for set_name in sets:
         this_set = getattr(mnist2, set_name) # shallow copy
         this_set._images = np.transpose(np.array([this_set.images[:,c] for c in perm_inds]))
     return mnist2
+
 
 def plot_test_acc(plot_handles):
     plt.legend(handles=plot_handles, loc="center right")
@@ -52,12 +53,12 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, lams=[0
             batch = trainset.train.next_batch(100)
             model.train_step.run(feed_dict={x: batch[0], y_: batch[1]})
 
-            if len(lams) > 1:
-                stop_loss = model.get_ewc_loss(sess, trainset.train.images, trainset.train.labels)
-                print(stop_loss)
-                if stop_loss > c:
+            #if hasattr(model, "star_vars"):
+                #stop_loss = model.get_ewc_loss(sess)
+                #print(stop_loss)
+                #if stop_loss > c:
                     #projection
-                	break
+                    #break
 
             if iter % disp_freq == 0:
                 plt.subplot(1, len(lams), l+1)
@@ -76,7 +77,9 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, lams=[0
                     plt.title("ewc")
                 plt.gcf().set_size_inches(len(lams)*5, 3.5)
 
-
+    return test_accs
+# end train_task
+    
 mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 sess = tf.InteractiveSession()
 x = tf.placeholder(tf.float32, shape=[None, 784])
@@ -86,18 +89,17 @@ sess.run(tf.global_variables_initializer())
 
 
 c = 0
-train_task(model, 800, 20, mnist, [mnist], x, y_, c, lams=[0])
+accu1 = train_task(model, 800, 20, mnist, [mnist], x, y_, c, lams=[0])
 
 model.compute_fisher(mnist.validation.images, sess, num_samples=10, plot_diffs=True) # use valida
 mnist2 = permute_mnist(mnist)
 model.star()
 #
 c = 1
-train_task(model, 800, 20, mnist2, [mnist, mnist2], x, y_, c, lams=[0,1])
+accu2 = train_task(model, 800, 20, mnist2, [mnist, mnist2], x, y_, c, lams=[1])
 #
 #model.compute_fisher(mnist2.validation.images, sess, num_samples=200, plot_diffs=True)
-#mnist3 = permute_mnist(mnist)
-#model.star()
+mnist3 = permute_mnist(mnist)
+model.star()
 #
-#
-#train_task(model, 800, 20, mnist3, [mnist, mnist2, mnist3], x, y_, c, lams=[0])
+accu3 = train_task(model, 800, 20, mnist3, [mnist, mnist2, mnist3], x, y_, c, lams=[1])
