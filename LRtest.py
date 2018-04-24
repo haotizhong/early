@@ -1,11 +1,8 @@
 import tensorflow as tf
 import numpy as np
-from copy import deepcopy
 import matplotlib.pyplot as plt
 from IPython import display
-from sklearn.utils import shuffle
 import random
-from random import randint
 
 
 class LR_model:
@@ -34,9 +31,9 @@ class LR_model:
 
         self.train_step = tf.train.GradientDescentOptimizer(0.1).minimize(self.cross_entropy)
 
-    def set_avg_theta(avg_weights, avg_bias):
-    	self.avg_weights = avg_weights
-    	self.avg_bias = avg_bias
+    def set_avg_theta(self, avg_weights, avg_bias):
+        	self.avg_weights = avg_weights
+        	self.avg_bias = avg_bias
 
     def get_ewc_loss(self, sess):
 
@@ -54,7 +51,7 @@ class data:
 		self.test_labels = Y_train
 		self.train_idx = 0
 
-	def next_batch(num):
+	def next_batch(self, num):
 		batch_x = []
 		batch_y = []
 		for i in range(num):
@@ -102,9 +99,7 @@ def bootstrap(cur_data, ratio):
 
 def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, as_init):
     # initialize test accuracy array for each task 
-    test_accs = []
-    for task in range(len(testsets)):
-        test_accs.append(np.zeros(num_iter/disp_freq))
+    test_accs = np.zeros(num_iter/disp_freq)
     # train on current task
     for iter in range(num_iter):
         batch = trainset.next_batch(100)
@@ -118,21 +113,9 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, as_init
             	break
         
         if iter % disp_freq == 0:
-            plt.subplot(1, len(lams), l+1)
-            plots = []
-            colors = ['r', 'b', 'g']
-            for task in range(len(testsets)):
-                feed_dict={x: testsets[task].test_dats, y_: testsets[task].test_labels}
-                test_accs[task][iter/disp_freq] = model.accuracy.eval(feed_dict=feed_dict)
-                ch = chr(ord('A') + task)
-                plot_h, = plt.plot(range(1,iter+2,disp_freq), test_accs[task][:iter/disp_freq+1], colors[task], label="task " + ch)
-                plots.append(plot_h)
-            plot_test_acc(plots)
-            if l == 0: 
-                plt.title("vanilla sgd")
-            else:
-                plt.title("ewc")
-            plt.gcf().set_size_inches(len(lams)*5, 3.5)
+            feed_dict={x: testsets.test_dats, y_: testsets.test_labels}
+            test_accs[iter/disp_freq] = model.accuracy.eval(feed_dict=feed_dict)
+            
     #test_accs = np.array(test_accs)
     #np.save('acc' + str(c) + '.npy', test_accs)
 
@@ -151,6 +134,7 @@ feature_dim = 784
 class_num = 10
 num_sampling = 10.
 sampling_ratio = 0.1
+c = 1
 
 x = tf.placeholder(tf.float32, shape=[None, feature_dim])
 y_ = tf.placeholder(tf.float32, shape=[None, class_num])
@@ -159,7 +143,7 @@ avg_weights = np.zeros(feature_dim, class_num)
 avg_bias = np.zeros(class_num)
 
 for _ in range(num_sampling):
-	tmpmodel = Model(x, y_)
+	tmpmodel = LR_model(x, y_)
 	with tf.Session as sess:
 		sess.run(tf.global_variables_initializer())
 		tmp_data = bootstrap(cur_data, sampling_ratio)
@@ -167,8 +151,8 @@ for _ in range(num_sampling):
 		avg_weights += tmp_weights[0] / num_sampling
 		avg_bias += tmp_weights[1] / num_sampling
 
-model = Model(x, y_)
+model = LR_model(x, y_)
 model.set_avg_theta(avg_weights, avg_bias)
 
 c = 1
-train_task(model, 800, 20, mnist, [mnist], x, y_, c, False)
+train_task(model, 800, 20, cur_data, [cur_data], x, y_, c, False)
