@@ -6,8 +6,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from IPython import display
-
 from model import Model
+from optroutine import ellipsoidprojection
 
 def mnist_imshow(img):
     plt.imshow(img.reshape([28,28]), cmap="gray")
@@ -34,15 +34,14 @@ def plot_test_acc(plot_handles):
     display.clear_output(wait=True)
     
 # train/compare vanilla sgd and ewc
-def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, lams=[0]):
+def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, learningrate ,c, lams=[0]):
 
     for l in range(len(lams)):
-        # lams[l] sets weight on old task(s)
         model.restore(sess) # reassign optimal weights from previous training session
-        if(lams[l] == 0):
-            model.set_vanilla_loss()
+        if(lams[l] == 0) or not hasattr(model, "star_vars"):
+            model.set_vanilla_loss(learningrate)
         else:
-            model.update_ewc_loss(lams[l])
+            model.update_ewc_loss(learningrate,lams[l])
         # initialize test accuracy array for each task 
         test_accs = []
         for task in range(len(testsets)):
@@ -52,13 +51,14 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, lams=[0
             print(iter)
             batch = trainset.train.next_batch(100)
             model.train_step.run(feed_dict={x: batch[0], y_: batch[1]})
-
-            #if hasattr(model, "star_vars"):
-                #stop_loss = model.get_ewc_loss(sess)
-                #print(stop_loss)
-                #if stop_loss > c:
+            if hasattr(model, "star_vars"):
+                stop_loss = model.get_ewc_loss(sess)
+                print(stop_loss)
+                if stop_loss > c:
+                    
+                    #ellipsoidprojection(theta0,center,weights,c)
                     #projection
-                    #break
+                    break
 
             if iter % disp_freq == 0:
                 plt.subplot(1, len(lams), l+1)
@@ -84,22 +84,20 @@ mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 sess = tf.InteractiveSession()
 x = tf.placeholder(tf.float32, shape=[None, 784])
 y_ = tf.placeholder(tf.float32, shape=[None, 10])
-model = Model(x, y_)
+model = Model(0.1,x, y_)
 sess.run(tf.global_variables_initializer())
 
 
-c = 0
-accu1 = train_task(model, 800, 20, mnist, [mnist], x, y_, c, lams=[0])
-
-model.compute_fisher(mnist.validation.images, sess, num_samples=10, plot_diffs=True) # use valida
+c = 0.2
+accu1 = train_task(model, 3000, 20, mnist, [mnist], x, y_, 0.1, c, lams=[0])
+model.compute_fisher(mnist.validation.images, sess, num_samples=500, plot_diffs=False) # use valida
 mnist2 = permute_mnist(mnist)
 model.star()
 #
-c = 1
-accu2 = train_task(model, 800, 20, mnist2, [mnist, mnist2], x, y_, c, lams=[1])
+accu2 = train_task(model, 3000, 20, mnist2, [mnist, mnist2], x, y_, 0.1, c, lams=[1])
 #
-#model.compute_fisher(mnist2.validation.images, sess, num_samples=200, plot_diffs=True)
+model.compute_fisher(mnist2.validation.images, sess, num_samples=500, plot_diffs=False)
 mnist3 = permute_mnist(mnist)
 model.star()
 #
-accu3 = train_task(model, 800, 20, mnist3, [mnist, mnist2, mnist3], x, y_, c, lams=[1])
+accu3 = train_task(model, 3000, 20, mnist3, [mnist, mnist2, mnist3], x, y_, 0.1, c, lams=[1])

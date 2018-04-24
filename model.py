@@ -14,29 +14,29 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 class Model:
-    def __init__(self, x, y_):
+    def __init__(self, learningrate, x, y_):
 
-        in_dim = int(x.get_shape()[1]) # 784 for MNIST
-        out_dim = int(y_.get_shape()[1]) # 10 for MNIST
+        self.in_dim = int(x.get_shape()[1]) # 784 for MNIST
+        self.out_dim = int(y_.get_shape()[1]) # 10 for MNIST
 
         self.x = x # input placeholder
         self.y_ = y_
 
         # simple 2-layer network
-        W1 = weight_variable([in_dim,50])
+        W1 = weight_variable([self.in_dim,50])
         b1 = bias_variable([50])
 
-        W2 = weight_variable([50,out_dim])
-        b2 = bias_variable([out_dim])
+        W2 = weight_variable([50,self.out_dim])
+        b2 = bias_variable([self.out_dim])
 
         h1 = tf.nn.relu(tf.matmul(x,W1) + b1) # hidden layer
         self.y = tf.matmul(h1,W2) + b2 # output layer
 
         self.var_list = [W1, b1, W2, b2]
-
+        
         # vanilla single-task loss
         self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=self.y))
-        self.set_vanilla_loss()
+        self.set_vanilla_loss(learningrate)
 
         # performance metrics
         correct_prediction = tf.equal(tf.argmax(self.y,1), tf.argmax(y_,1))
@@ -45,8 +45,8 @@ class Model:
         
     def compute_fisher(self, imgset, sess, num_samples=200, plot_diffs=False, disp_freq=10):
         # computer Fisher information for each parameter
-
         # initialize Fisher information for most recent task
+        
         self.F_accum = []
         for v in range(len(self.var_list)):
             self.F_accum.append(np.zeros(self.var_list[v].get_shape().as_list()))
@@ -61,6 +61,7 @@ class Model:
             mean_diffs = np.zeros(0)
 
         for i in range(num_samples):
+            print("fisher " + str(i))
             # select random input image
             im_ind = np.random.randint(imgset.shape[0])
             # compute first-order derivatives
@@ -91,36 +92,84 @@ class Model:
     def star(self):
         # used for saving optimal weights after most recent task training
         self.star_vars = []
-
         for v in range(len(self.var_list)):
             self.star_vars.append(self.var_list[v].eval())
-
+    
+                
     def restore(self, sess):
         # reassign optimal weights for latest task
         if hasattr(self, "star_vars"):
             for v in range(len(self.var_list)):
                 sess.run(self.var_list[v].assign(self.star_vars[v]))
 
-    def set_vanilla_loss(self):
-        self.train_step = tf.train.GradientDescentOptimizer(0.1).minimize(self.cross_entropy)
+    def set_vanilla_loss(self,learningrate):
+        self.train_step = tf.train.GradientDescentOptimizer(learningrate).minimize(self.cross_entropy)
 
-    def update_ewc_loss(self, lam):
+    def update_ewc_loss(self, learningrate, lam):
         # elastic weight consolidation
         # lam is weighting for previous task(s) constraints
-
         if not hasattr(self, "ewc_loss"):
             self.ewc_loss = self.cross_entropy
 
         for v in range(len(self.var_list)):
-            self.stop_loss = tf.reduce_sum(tf.multiply(self.F_accum[v].astype(np.float32),tf.square(self.var_list[v] - self.star_vars[v])))
-        self.train_step = tf.train.GradientDescentOptimizer(0.1).minimize(self.ewc_loss)
+            self.ewc_loss += lam * tf.reduce_sum(tf.multiply(self.F_accum[v].astype(np.float32),tf.square(self.var_list[v] - self.star_vars[v])))
+        self.train_step = tf.train.GradientDescentOptimizer(learningrate).minimize(self.ewc_loss)
 
-    def get_ewc_loss(self, sess, imgset, labels):
-        # elastic weight consolidation
-        # lam is weighting for previous task(s) constraints
-
-        stop_loss = 0
+    def get_ewc_loss(self, sess):
+        # compute elastic weight term
+        ewc_loss = 0
         for v in range(len(self.var_list)):
-            feed_dict={self.x: imgset, self.y_: labels}
-            stop_loss += sess.run(tf.reduce_sum(tf.multiply(self.F_accum[v].astype(np.float32),tf.square(self.var_list[v] - self.star_vars[v]))), feed_dict = feed_dict)
-        return stop_loss
+            ewc_loss += np.sum(self.F_accum[v].astype(np.float32) * (self.var_list[v].eval() - self.star_vars[v])**2)
+ 
+        return ewc_loss
+    
+    def param2vec(self):
+        
+        veclength = 0
+        for v in self.var_list:
+            dimen = 1
+            for d in v.shape:
+                dimen *= int(d)
+            veclength += dimen
+            
+        vec = np.zeros(veclength)
+        paramcount = 0
+        for v in self.var_list:
+            v_np = v.eval()
+            if len(v_np.shape)>1:
+                v_np_vec = v_np.reshape(v_np.shape[0]*v_np.shape[1])
+            else:
+                v_np_vec = v_np.reshape(v_np.shape[0])
+            vec[paramcount:paramcount+len(v_np_vec)] = v_np_vec
+            paramcount += len(v_np_vec)
+                   
+        return vec 
+
+
+    def vec2param(self,vec):
+        paramcount = 0
+        #TODO: convert param to tf tensors
+        for v in self.var_list:
+            if len(v.shape) > 1:
+                dim = int(v.shape[0]) * int(v.shape[1])
+                param = vec[paramcount:paramcount+dim].reshape([int(v.shape[0]),int(v.shape[1])])
+            else:
+                dim = int(v.shape[0])
+                param = vec[paramcount:paramcount+dim]                           
+            paramcount += dim
+            
+            
+ 
+    
+            
+            
+            
+        
+
+
+                    
+                
+        
+        
+        
+        
