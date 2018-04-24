@@ -149,6 +149,7 @@ class Model:
     def vec2param(self, vec, sess):
         paramcount = 0
         #TODO: convert param to tf tensors
+        op_list = []
         for v in self.var_list:
             if len(v.shape) > 1:
                 dim = int(v.shape[0]) * int(v.shape[1])
@@ -156,9 +157,10 @@ class Model:
             else:
                 dim = int(v.shape[0])
                 param = vec[paramcount:paramcount+dim]           
-            v.assign(param)
-            sess.run(v)
+            a_op = v.assign(param)
+            op_list.append(a_op)
             paramcount += dim
+        sess.run(op_list)
             
             
  
