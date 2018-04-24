@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 from IPython import display
 
 # variable initialization functions
-def weight_variable(shape):
+def weight_variable(shape, weight_name):
     initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
+    return tf.Variable(initial, name = weight_name)
 
-def bias_variable(shape):
+def bias_variable(shape, weight_name):
     initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+    return tf.Variable(initial, name = weight_name)
 
 class Model:
     def __init__(self, learningrate, x, y_):
@@ -23,11 +23,11 @@ class Model:
         self.y_ = y_
 
         # simple 2-layer network
-        W1 = weight_variable([self.in_dim,50])
-        b1 = bias_variable([50])
+        W1 = weight_variable([self.in_dim,50], 'W1')
+        b1 = bias_variable([50], 'b1')
 
-        W2 = weight_variable([50,self.out_dim])
-        b2 = bias_variable([self.out_dim])
+        W2 = weight_variable([50,self.out_dim], 'W2')
+        b2 = bias_variable([self.out_dim], 'b2')
 
         h1 = tf.nn.relu(tf.matmul(x,W1) + b1) # hidden layer
         self.y = tf.matmul(h1,W2) + b2 # output layer
@@ -146,7 +146,7 @@ class Model:
         return vec 
 
 
-    def vec2param(self,vec):
+    def vec2param(self, vec, sess):
         paramcount = 0
         #TODO: convert param to tf tensors
         for v in self.var_list:
@@ -155,7 +155,9 @@ class Model:
                 param = vec[paramcount:paramcount+dim].reshape([int(v.shape[0]),int(v.shape[1])])
             else:
                 dim = int(v.shape[0])
-                param = vec[paramcount:paramcount+dim]                           
+                param = vec[paramcount:paramcount+dim]           
+            v.assign(param)
+            sess.run(v)
             paramcount += dim
             
             
