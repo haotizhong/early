@@ -21,7 +21,7 @@ class LR_model:
         W = weight_variable([in_dim,out_dim])
         b = bias_variable([out_dim])
 
-        h1 = tf.matmul(x,W) + b
+        self.y = tf.nn.softmax(tf.matmul(x,W) + b)
 
         self.var_list = [W, b]
 
@@ -48,8 +48,8 @@ class LR_model:
 
 class data:
 	def __init__(self, X_train, Y_train, X_test, Y_test):
-		self.train_imgs = X_train
-		self.test_imgs = X_test
+		self.train_dats = X_train
+		self.test_dats = X_test
 		self.train_labels = Y_train
 		self.test_labels = Y_train
 		self.train_idx = 0
@@ -58,9 +58,9 @@ class data:
 		batch_x = []
 		batch_y = []
 		for i in range(num):
-			batch_x.append(self.train_imgs[self.train_idx])
+			batch_x.append(self.train_dats[self.train_idx])
 			batch_y.append(self.train_labels[self.train_idx])
-			self.train_idx = (self.train + 1) % len(self.train_imgs)
+			self.train_idx = (self.train_idx + 1) % len(self.train_dats)
 		return [batch_x, batch_y]
 
 
@@ -89,15 +89,15 @@ def plot_test_acc(plot_handles):
 
 
 def bootstrap(cur_data, ratio):
-    rd_idx = random.sample(range(0, len(cur_data.train_imgs)), len(cur_data.train_imgs) * ratio)
+    rd_idx = random.sample(range(0, len(cur_data.train_dats)), len(cur_data.train_dats) * ratio)
 
     train_imgs = []
     train_labels = []
     for idx in rd_idx:
-        train_imgs.append(cur_data.train_imgs[idx])
+        train_imgs.append(cur_data.train_dats[idx])
         train_labels.append(cur_data.train_labels[idx])
 
-    return data(train_imgs, train_labels, cur_data.test_imgs, cur_data.test_labels)
+    return data(train_imgs, train_labels, cur_data.test_dats, cur_data.test_labels)
 
 
 def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, as_init):
@@ -107,7 +107,7 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, as_init
         test_accs.append(np.zeros(num_iter/disp_freq))
     # train on current task
     for iter in range(num_iter):
-        batch = trainset.train.next_batch(100)
+        batch = trainset.next_batch(100)
         model.train_step.run(feed_dict={x: batch[0], y_: batch[1]})
         
         if not as_init:
@@ -122,7 +122,7 @@ def train_task(model, num_iter, disp_freq, trainset, testsets, x, y_, c, as_init
             plots = []
             colors = ['r', 'b', 'g']
             for task in range(len(testsets)):
-                feed_dict={x: testsets[task].test.images, y_: testsets[task].test.labels}
+                feed_dict={x: testsets[task].test_dats, y_: testsets[task].test_labels}
                 test_accs[task][iter/disp_freq] = model.accuracy.eval(feed_dict=feed_dict)
                 ch = chr(ord('A') + task)
                 plot_h, = plt.plot(range(1,iter+2,disp_freq), test_accs[task][:iter/disp_freq+1], colors[task], label="task " + ch)
